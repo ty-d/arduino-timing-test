@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/chechkout@v2
+    - uses: actions/checkout@v2
     - name: Cache pip
       uses: actions/cache@v2
       with:
