@@ -4,6 +4,9 @@
     NOTE: all of these are far from final, just random numbers for now
 */
 
+#ifndef INCLUDED_PIN_DEFS
+#define INCLUDED_PIN_DEFS
+
 // Inputs
 const int PRESSURE_SENSOR_INPUT = 3;
 const int DOWNTIME_CLEANING_INPUT = 4;
@@ -22,8 +25,8 @@ void setupTimingInputs() {
 }
 
 // Outputs
-const int SOLENOID_ARRAY[] = {1, 2};
-const int NUM_SOLENOIDS = 2;
+const int SOLENOID_ARRAY[] = {3, 4, 5, 6, 7, 8};
+const int NUM_SOLENOIDS = 6;
 
 const int HIGH_ALARM = 10;
 const int MAINTENANCE_ALARM = 11;
@@ -37,3 +40,5 @@ void setupTimingOutputs() {
     pinMode(MAINTENANCE_ALARM, OUTPUT);
     pinMode(PRESSURE_TRANSMITTER, OUTPUT);
 }
+
+#endif
