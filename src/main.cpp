@@ -3,15 +3,10 @@
 #include <pin_defs.h>
 #include <EEPROM.h>
 #include <timer.h>
-
-// If defined will use the serial monitor to output debug info
-#define DEBUG
-
-#ifdef DEBUG
-#define DEBUG_PRINT(arg)    Serial.println(arg)
-#else
-#define DEBUG_PRINT(arg)    // Don't do anything in release builds
-#endif
+#include <ArduinoModbus.h>
+#include <solenoid.h>
+#include <debug.h>
+#include <modbus_registers.h>
 
 // Global variables
 PersistentVals persistentVals;
@@ -24,7 +19,8 @@ Timer cleaningTimer;
 
 const int PULSE_CYCLE_MAINTENANCE_THRESHOLD = 1000; // What should this value be? is it constant?
 unsigned long lastEEPROMWrite = 0;
-unsigned int currentSolenoid = 0;
+
+Solenoids solenoids = newSolenoids();
 
 void setup() {
 #ifdef DEBUG
@@ -50,6 +46,8 @@ void setup() {
 	setupTimingInputs();
 	setupTimingOutputs();
 
+	modbusInit(wrapper.userSettings);
+
 	// Assume these start for now
 	operationTimer = newTimer(persistentVals.operationTime);
 	startTimer(operationTimer, millis());
@@ -63,7 +61,14 @@ void setup() {
 }
 
 void loop() {
+
+#ifndef DEBUG
+	ModbusRTUServer.poll();
+#endif
+
 	unsigned long currentTime = millis();
+
+	// Manage EEPROM
 	if ((currentTime - lastEEPROMWrite > 10000) || (currentTime < lastEEPROMWrite)) {
 		persistentVals.operationTime = elapsedTime(operationTimer, millis());
 		persistentVals.lifeTime = elapsedTime(lifetimeTimer, millis());
@@ -73,16 +78,10 @@ void loop() {
 		lastEEPROMWrite = currentTime;
 		// NOTE: needs to be changed, this is a simple solution that doesn't have good enough endurance (100,000 writes guaranteed on EEPROM)
 		EEPROM.put(0x00, EEPROMWrapper {
-			EEPROM_WRITTEN_CONST, persistentVals, userSettings
+			EEPROM_WRITTEN_CONST, persistentVals, modbusGetUserSettings()
 		});
 		DEBUG_PRINT(lastEEPROMWrite);
 	}
 
-	// assume a pulse for now
-	digitalWrite(SOLENOID_ARRAY[currentSolenoid], HIGH);
-	delay(userSettings.pulseOnTime);
-	digitalWrite(SOLENOID_ARRAY[currentSolenoid], LOW);
-	delay(userSettings.pulseOffTime * 1000);
-
-	currentSolenoid = (currentSolenoid + 1) % NUM_SOLENOIDS;
+	updateSolenoids(solenoids, currentTime);
 }
