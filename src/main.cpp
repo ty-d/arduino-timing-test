@@ -77,10 +77,10 @@ void loop() {
 
 		lastEEPROMWrite = currentTime;
 		// NOTE: needs to be changed, this is a simple solution that doesn't have good enough endurance (100,000 writes guaranteed on EEPROM)
+		UserSettings us = modbusGetUserSettings();
 		EEPROM.put(0x00, EEPROMWrapper {
-			EEPROM_WRITTEN_CONST, persistentVals, modbusGetUserSettings()
+			EEPROM_WRITTEN_CONST, persistentVals, us
 		});
-		DEBUG_PRINT(lastEEPROMWrite);
 	}
 
 	updateSolenoids(solenoids, currentTime);
