@@ -29,7 +29,11 @@ void updateSolenoids(Solenoids& solenoids, unsigned long time) {
         solenoids.state = Pulsing;
         solenoids.lastUpdated = time;
     } else if (solenoids.state == Pulsing) {
-        if (time - solenoids.lastUpdated > 150) {
+        int timeAllowed = 150;
+#ifndef DEBUG
+        timeAllowed = ModbusRTUServer.holdingRegisterRead(PulseOnTime);
+#endif
+        if (time - solenoids.lastUpdated > timeAllowed) {
             digitalWrite(SOLENOID_ARRAY[solenoids.currentSolenoid], LOW);
             solenoids.state = Waiting;
             solenoids.lastUpdated = time;

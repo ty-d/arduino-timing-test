@@ -59,25 +59,26 @@ void modbusInit(UserSettings userSettings) {
         ModbusRTUServer.holdingRegisterWrite(LifetimeTimer, 5);
 
         writeModbusFloat(HighAlarm, userSettings.highAlarmThreshold);
-        ModbusRTUServer.holdingRegisterWrite(HighAlarmDelay, 4);
-        ModbusRTUServer.holdingRegisterWrite(DowntimeCleaningDuration, 8);
-        writeModbusFloat(LowLimit, 0.01);
-        writeModbusFloat(HighLimit, 6.00);
-        ModbusRTUServer.holdingRegisterWrite(PulseOnTime, 150);
-        ModbusRTUServer.holdingRegisterWrite(PulseOffTime, 10);
+        ModbusRTUServer.holdingRegisterWrite(HighAlarmDelay, userSettings.highAlarmDelay);
+        ModbusRTUServer.holdingRegisterWrite(DowntimeCleaningDuration, userSettings.downtimeCleaningDuration);
+        writeModbusFloat(LowLimit, userSettings.lowLimit);
+        writeModbusFloat(HighLimit, userSettings.highLimit);
+        ModbusRTUServer.holdingRegisterWrite(PulseOnTime, userSettings.pulseOnTime);
+        ModbusRTUServer.holdingRegisterWrite(PulseOffTime, userSettings.pulseOffTime);
 	}
 #endif
 }
 
 UserSettings modbusGetUserSettings() {
+    // Note: castings to int16_t should never be an issue since reading a holding register should only return 16 bits. Not sure why the library returns a long instead
     return UserSettings {
         readModbusFloat(HighAlarm),
-        ModbusRTUServer.holdingRegisterRead(HighAlarmDelay),
-        ModbusRTUServer.holdingRegisterRead(DowntimeCleaningDuration),
+        (int16_t) ModbusRTUServer.holdingRegisterRead(HighAlarmDelay),
+        (int16_t) ModbusRTUServer.holdingRegisterRead(DowntimeCleaningDuration),
         readModbusFloat(LowLimit),
         readModbusFloat(HighLimit),
-        ModbusRTUServer.holdingRegisterRead(PulseOnTime),
-        ModbusRTUServer.holdingRegisterRead(PulseOffTime),
+        (int16_t) ModbusRTUServer.holdingRegisterRead(PulseOnTime),
+        (int16_t) ModbusRTUServer.holdingRegisterRead(PulseOffTime),
     };
 }
 
