@@ -15,6 +15,11 @@ const int HIGH_ALARM_RESET = 6;
 const int MANUAL_OVERRIDE = 7;
 const int OPERATION_RESET = 8;
 
+// Button inputs
+const int VALUE_UP = 22;
+const int VALUE_DOWN = 24;
+const int SELECT = 26;
+
 void setupTimingInputs() {
     pinMode(PRESSURE_SENSOR_INPUT, INPUT);
     pinMode(DOWNTIME_CLEANING_INPUT, INPUT);
@@ -22,6 +27,9 @@ void setupTimingInputs() {
     pinMode(HIGH_ALARM_RESET, INPUT);
     pinMode(MANUAL_OVERRIDE, INPUT);
     pinMode(OPERATION_RESET, INPUT);
+    pinMode(VALUE_UP, INPUT);
+    pinMode(VALUE_DOWN, INPUT);
+    pinMode(SELECT, INPUT);
 }
 
 // Outputs

@@ -44,6 +44,30 @@ enum ModbusRegisters {
     PulseOffTime = 13,
 };
 
+// for editing the user settings (TODO: this may not make sense)
+/* order:
+- pulse off
+- pulse on
+- high limit
+- low limit
+- high alarm
+- low alarm
+- cycle delay
+- down time
+- auto alarm?
+*/
+int nextRegister(int current = 0) {
+    if (current == 0) {
+        return PulseOffTime;
+    } else if (current == PulseOffTime) {
+        return PulseOnTime;
+    } else if (current == PulseOnTime) {
+        return HighLimit;
+    } else {
+        return 0;
+    }
+}
+
 void modbusInit(UserSettings userSettings) {
 #ifndef DEBUG
     ModbusRTUServer = ModbusRTUServerClass();
