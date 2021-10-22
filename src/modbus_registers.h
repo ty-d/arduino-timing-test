@@ -42,6 +42,7 @@ enum ModbusRegisters {
     HighLimit = 10,
     PulseOnTime = 12,
     PulseOffTime = 13,
+    NumSolenoids = 14,
 };
 
 // for editing the user settings (TODO: this may not make sense)
@@ -63,6 +64,16 @@ int nextRegister(int current = 0) {
         return PulseOnTime;
     } else if (current == PulseOnTime) {
         return HighLimit;
+    } else if (current == HighLimit) {
+        return LowLimit;
+    } else if (current == LowLimit) {
+        return HighAlarm;
+    } else if (current == HighAlarm) {
+        return HighAlarmDelay;
+    } else if (current == HighAlarmDelay) {
+        return DowntimeCleaningDuration;
+    } else if (current == DowntimeCleaningDuration) {
+        return NumSolenoids;
     } else {
         return 0;
     }
@@ -75,7 +86,7 @@ void modbusInit(UserSettings userSettings) {
 	if (!ModbusRTUServer.begin(MODBUS_SLAVE_ADDRESS, 115200)) {
 		DEBUG_PRINT("Starting Modbus server failed...");
 	} else {
-        ModbusRTUServer.configureHoldingRegisters(0x00, 14);
+        ModbusRTUServer.configureHoldingRegisters(0x00, 15);
 
         // Outputs
         writeModbusFloat(Pressure, 5.3);
@@ -89,6 +100,7 @@ void modbusInit(UserSettings userSettings) {
         writeModbusFloat(HighLimit, userSettings.highLimit);
         ModbusRTUServer.holdingRegisterWrite(PulseOnTime, userSettings.pulseOnTime);
         ModbusRTUServer.holdingRegisterWrite(PulseOffTime, userSettings.pulseOffTime);
+        ModbusRTUServer.holdingRegisterWrite(NumSolenoids, 6);//userSettings.numSolenoids);
 	}
 #endif
 }

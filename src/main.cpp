@@ -30,6 +30,7 @@ ButtonDebouncer valueDown = newButtonDebouncer();
 ButtonDebouncer valueUp = newButtonDebouncer();
 
 SevSeg display;
+char outputString[4] = "000";
 
 void setup() {
 #ifdef DEBUG
@@ -75,10 +76,6 @@ void setup() {
 
 	display.Begin(COMMON_ANODE, 3, 12, 48, A0, 0, 11, A3, A2, A4, A5, 10, A1, 38);
 	display.SetBrightness(100);
-
-	char testString[30];
-	dtostrf(6.23, 3, 2, testString);
-	DEBUG_PRINT(testString);
 }
 
 void loop() {
@@ -89,12 +86,11 @@ void loop() {
 
 	unsigned long currentTime = millis();
 
+	// fire solenoids if necessary
 	updateSolenoids(solenoids, currentTime);
 
+	// update the input handler
 	bool selectRisingEdge = checkForRisingEdge(select, digitalRead(SELECT));
-	if (selectRisingEdge) {
-		DEBUG_PRINT("select rising edge!");
-	}
 	bool valueDownRisingEdge = checkForRisingEdge(valueDown, digitalRead(VALUE_DOWN));
 	bool valueUpRisingEdge = checkForRisingEdge(valueUp, digitalRead(VALUE_UP));
 	updateInputHandler(inputHandler, selectRisingEdge, valueUpRisingEdge, valueDownRisingEdge);
@@ -105,8 +101,7 @@ void loop() {
 			display.DisplayString(inputHandler.displayString, inputHandler.decimalLocation);
 		}
 	} else {
-		char outputString[3];
-		sprintf(outputString, "%3d", solenoids.currentSolenoid);
+		outputString[2] = solenoids.currentSolenoid + 48;
 		display.DisplayString(outputString, 0);
 	}
 	

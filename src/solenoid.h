@@ -37,7 +37,7 @@ void updateSolenoids(Solenoids& solenoids, unsigned long time) {
             digitalWrite(SOLENOID_ARRAY[solenoids.currentSolenoid], LOW);
             solenoids.state = Waiting;
             solenoids.lastUpdated = time;
-            solenoids.currentSolenoid = (solenoids.currentSolenoid + 1) % NUM_SOLENOIDS;
+            solenoids.currentSolenoid = (solenoids.currentSolenoid + 1) % ModbusRTUServer.holdingRegisterRead(NumSolenoids);
         }
     } else if (solenoids.state == Waiting) {
         int timeAllowed = 1000;

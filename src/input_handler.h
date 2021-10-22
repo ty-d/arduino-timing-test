@@ -37,56 +37,93 @@ struct InputHandler {
     int currentValue;
     float currentFloat;
     bool editing;
-    char displayString[3];
+    char displayString[4];
     int decimalLocation;
 };
 
 InputHandler newInputHandler() {
     return InputHandler {
-        0, 0, false, "000", 0
+        0, 0, 0.0, false, "000", 0
     };
+}
+
+bool registerIsFloat(int reg) {
+    return (reg == HighLimit || reg == LowLimit);
+}
+
+float getIncrFloat(int reg) {
+    return 0.01;
+}
+
+int getIncrInt(int reg) {
+    if (reg == PulseOnTime) {
+        return 10;
+    }
+    return 1;
+}
+
+int getUpperInt(int reg) {
+    if (reg == HighAlarmDelay) {
+        return 600;
+    } else if (reg == DowntimeCleaningDuration) {
+        return 30;
+    } else if (reg == PulseOnTime) {
+        return 500;
+    } else if (reg == PulseOffTime) {
+        return 60;
+    } else if (reg == NumSolenoids) {
+        return MAX_NUM_SOLENOIDS;
+    }
 }
 
 // Returns -1 if it should not be displaying anything, the number to display otherwise
 void updateInputHandler(InputHandler& ih, bool select, bool valueUp, bool valueDown) {
     if (select) {
         if (ih.editing) {
-            ModbusRTUServer.holdingRegisterWrite(ih.currentRegister, ih.currentValue);
+            if (registerIsFloat(ih.currentRegister)) {
+                writeModbusFloat(ih.currentRegister, ih.currentFloat);
+            } else {
+                ModbusRTUServer.holdingRegisterWrite(ih.currentRegister, ih.currentValue);
+            }
             ih.currentRegister = nextRegister(ih.currentRegister);
             ih.currentValue = ModbusRTUServer.holdingRegisterRead(ih.currentRegister);
             if (ih.currentRegister == 0) {
                 ih.editing = false;
             }
-            if (ih.currentRegister == HighLimit) {
+            if (registerIsFloat(ih.currentRegister)) {
                 ih.currentFloat = readModbusFloat(ih.currentRegister);
             }
         } else {
             ih.editing = true;
             ih.currentRegister = nextRegister();
             ih.currentValue = ModbusRTUServer.holdingRegisterRead(ih.currentRegister);
-            if (ih.currentRegister == HighLimit) {
+            if (registerIsFloat(ih.currentRegister)) {
                 DEBUG_PRINT("writing float");
                 ih.currentFloat = readModbusFloat(ih.currentRegister);
             }
         }
     } else if ((valueUp || valueDown) && ih.editing) {
-        if (ih.currentRegister != HighLimit) {
+        if (!registerIsFloat(ih.currentRegister)) {
             if (valueUp) {
-                ih.currentValue++;
+                if (ih.currentValue < getUpperInt(ih.currentRegister)) {
+                    ih.currentValue += getIncrInt(ih.currentRegister);
+                }
             } else {
-                ih.currentValue--;
+                ih.currentValue -= getIncrInt(ih.currentRegister);
             }
+            ModbusRTUServer.holdingRegisterWrite(ih.currentRegister, ih.currentValue);
         } else {
             if (valueUp) {
-                ih.currentFloat += .01;
+                ih.currentFloat += getIncrFloat(ih.currentRegister);
             } else {
-                ih.currentFloat -= .01;
+                ih.currentFloat -= getIncrFloat(ih.currentRegister);
             }
+            writeModbusFloat(ih.currentRegister, ih.currentFloat);
         }
     }
 
     if (ih.editing) {
-        if (ih.currentRegister == HighLimit) {
+        if (registerIsFloat(ih.currentRegister)) {
 			char tempString[4];
 			dtostrf(ih.currentFloat, 4, 2, tempString);
 			ih.displayString[0] = tempString[0];

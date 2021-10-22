@@ -33,15 +33,15 @@ void setupTimingInputs() {
 }
 
 // Outputs
-const int SOLENOID_ARRAY[] = {3, 4, 5, 6, 7, 8};
-const int NUM_SOLENOIDS = 6;
+const int SOLENOID_ARRAY[] = {3, 4, 5, 6, 36, 8};
+const int MAX_NUM_SOLENOIDS = 40;
 
 const int HIGH_ALARM = 10;
 const int MAINTENANCE_ALARM = 11;
 const int PRESSURE_TRANSMITTER = 12;
 
 void setupTimingOutputs() {
-	for (int s = 0; s < NUM_SOLENOIDS; s++) {
+	for (int s = 0; s < MAX_NUM_SOLENOIDS; s++) {
 		pinMode(SOLENOID_ARRAY[s], OUTPUT);
 	}
     pinMode(HIGH_ALARM, OUTPUT);

@@ -17,12 +17,13 @@ struct UserSettings {
     float highLimit;   			// 0.00 - 10.00 InWC
     int16_t pulseOnTime;				// 50 - 500 milliseconds
     int16_t pulseOffTime;				// 1 - 60 seconds
+    int16_t numSolenoids;               // 1 - 40
 };
 
 // TODO: confirm these
 UserSettings defaultSettings() {
     return UserSettings {
-        6.0, 5, 5, 0.00, 6.00, 150, 10
+        6.0, 5, 5, 0.00, 6.00, 150, 10, 6
     };
 }
 
