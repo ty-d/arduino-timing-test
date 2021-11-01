@@ -7,8 +7,14 @@
 #include <solenoid.h>
 #include <debug.h>
 #include <modbus_registers.h>
-#include <SevSeg.h>
 #include <input_handler.h>
+#include <LiquidCrystal.h>
+#include <Adafruit_ADS1X15.h>
+#include <pressure.h>
+#include <Ethernet2.h>
+#include <SPI.h>
+
+extern ModbusTCPServer modbusTCPServer;
 
 // Global variables
 PersistentVals persistentVals;
@@ -21,6 +27,7 @@ Timer cleaningTimer;
 
 const unsigned long PULSE_CYCLE_MAINTENANCE_THRESHOLD = 1000000;
 unsigned long lastEEPROMWrite = 0;
+unsigned long lastPressureRead = 0;
 
 Solenoids solenoids = newSolenoids();
 
@@ -28,16 +35,44 @@ InputHandler inputHandler = newInputHandler();
 ButtonDebouncer select = newButtonDebouncer();
 ButtonDebouncer valueDown = newButtonDebouncer();
 ButtonDebouncer valueUp = newButtonDebouncer();
+ButtonDebouncer highAlarmReset = newButtonDebouncer();
 
-SevSeg display;
-char outputString[4] = "000";
+bool highAlarmOn = false;
+
+// rs = 43
+// r/w = 41
+// E = 39
+// db0 - db3 = 37, 35, 33, 31
+// db4 - db7 = 29 27 25 23
+//LiquidCrystal lcd(43, 39, 29, 27, 25, 23);
+//LiquidCrystal lcd(43, 41, 39, 37, 35, 33, 31, 29, 27, 25, 23);
+LiquidCrystal lcd(43, 41, 39, 29, 27, 25, 23);
+
+extern Adafruit_ADS1115 pressureReader;
+
+EthernetServer ethServer(502);
+byte mac[] = {
+	0xA8, 0x61, 0x0A, 0xAE, 0x85, 0x0B
+};
+IPAddress ip(192, 168, 1, 177);
+
+float currentPressure = 0.00;
+
+EthernetClient client;
 
 void setup() {
-#ifdef DEBUG
 	Serial.begin(9600);
-#endif
+	while (!Serial) {
+		;	// again, might not need
+	}
 
 	DEBUG_PRINT("Serial debugging enabled");
+
+	Ethernet.begin(mac, ip);
+	ethServer.begin();
+
+	DEBUG_PRINT("server at");
+	DEBUG_PRINT(Ethernet.localIP());
 
 	// get persistent data from eeprom
 	EEPROMWrapper wrapper;
@@ -69,42 +104,108 @@ void setup() {
 	highAlarmTimer = newTimer(0);
 	cleaningTimer = newTimer(0);
 	
-	// pin 1 to a5 E, 2 a4 D, 3 a3 DP, 4 a2 C, 5 a1 G
-	// pin 13 to 7 B
-	// 8 a0 dig 3
-	// 9 9 dig 2, 10 10 F, 11 11 A, 12 12 dig 1
+	lcd.begin(16, 4);
+	lcd.print("hello");
 
-	display.Begin(COMMON_ANODE, 3, 12, 48, A0, 0, 11, A3, A2, A4, A5, 10, A1, 38);
-	display.SetBrightness(100);
+	if (!pressureReader.begin()) {
+		DEBUG_PRINT("Failed to start the ADS.");
+	}
 }
 
 void loop() {
-
-#ifndef DEBUG
-	ModbusRTUServer.poll();
-#endif
+	// Handle TCP client
+	if (client) {
+		if (client.connected()) {
+			modbusTCPServer.poll();
+		} else {
+			client.stop();
+			client = ethServer.available();
+			if (client) modbusTCPServer.accept(client);
+		}
+	} else {
+		client = ethServer.available();
+		if (client) modbusTCPServer.accept(client);
+	}
 
 	unsigned long currentTime = millis();
 
-	// fire solenoids if necessary
-	updateSolenoids(solenoids, currentTime);
+	// update pressure reading
+	if ((currentTime - lastPressureRead > 100) || (currentTime < lastPressureRead)) {
+		lastPressureRead = currentTime;
+		currentPressure = readPressureSensor();
+		if (!inputHandler.editing) {
+			lcd.clear();
+			lcd.print("Pressure");
+			lcd.setCursor(0, 1);
+			lcd.print(currentPressure);
+		}
+	}
+
+	// fire solenoids if necessary, TODO: allow manual override and downtime override
+	updateSolenoids(solenoids, currentTime, currentPressure);
+
+	// Operation and lifetime timers should not be running under 0.5 InWC
+	if (currentPressure < 0.5) {
+		if (lifetimeTimer.running) {
+			stopTimer(lifetimeTimer, currentTime);
+		}
+		if (operationTimer.running) {
+			stopTimer(operationTimer, currentTime);
+		}
+	} else {
+		if (!lifetimeTimer.running) {
+			startTimer(lifetimeTimer, currentTime);
+		}
+		if (!operationTimer.running) {
+			startTimer(operationTimer, currentTime);
+		}
+	}
+
+	// Handle high alarm timer
+	bool highAlarmResetRisingEdge = checkForRisingEdge(highAlarmReset, digitalRead(HIGH_ALARM_RESET));
+	if (highAlarmOn && highAlarmResetRisingEdge) {
+		highAlarmOn = false;
+		digitalWrite(HIGH_ALARM, LOW);
+	}
+	if (currentPressure > readModbusFloat(HighAlarm)) {
+		if (highAlarmTimer.running) {
+			if (!highAlarmOn) {
+				if (elapsedTime(highAlarmTimer, currentTime) > modbusTCPServer.holdingRegisterRead(HighAlarmDelay)) {
+					// set the high alarm flag
+					DEBUG_PRINT("high alarm");
+					digitalWrite(HIGH_ALARM, HIGH);
+					highAlarmOn = true;
+				}
+			}
+		} else {
+			startTimer(highAlarmTimer, currentTime);
+		}
+	} else {
+		if (highAlarmTimer.running) {
+			highAlarmTimer = newTimer(0);
+		}
+	}
+	// TODO: some way to reset the high alarm
+	// TODO: some way to reset the operation timer
 
 	// update the input handler
 	bool selectRisingEdge = checkForRisingEdge(select, digitalRead(SELECT));
 	bool valueDownRisingEdge = checkForRisingEdge(valueDown, digitalRead(VALUE_DOWN));
 	bool valueUpRisingEdge = checkForRisingEdge(valueUp, digitalRead(VALUE_UP));
 	updateInputHandler(inputHandler, selectRisingEdge, valueUpRisingEdge, valueDownRisingEdge);
-
-	// the display
-	if (inputHandler.editing) {
-		if (currentTime % 1000 > 500) {
-			display.DisplayString(inputHandler.displayString, inputHandler.decimalLocation);
+	if (selectRisingEdge || valueUpRisingEdge|| valueDownRisingEdge) {
+		lcd.clear();
+		if (inputHandler.editing) {
+			lcd.print(regToString(inputHandler.currentRegister));
+			lcd.setCursor(0, 1);
+			if (registerIsFloat(inputHandler.currentRegister)) {
+				lcd.print(inputHandler.currentFloat);
+			} else {
+				lcd.print(inputHandler.currentValue);
+			}
 		}
-	} else {
-		outputString[2] = solenoids.currentSolenoid + 48;
-		display.DisplayString(outputString, 0);
 	}
-	
+
 	// Manage EEPROM
 	if ((currentTime - lastEEPROMWrite > 10000) || (currentTime < lastEEPROMWrite)) {
 		persistentVals.operationTime = elapsedTime(operationTimer, millis());
@@ -120,4 +221,4 @@ void loop() {
 		});
 	}
 
-} 
+}

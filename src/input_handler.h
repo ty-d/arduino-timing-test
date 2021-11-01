@@ -1,11 +1,9 @@
-#include <pin_defs.h>
-#include <ArduinoModbus.h>
-#include <modbus_registers.h>
-
 #ifndef INCLUDE_INPUT_HANDLER
 #define INCLUDE_INPUT_HANDLER
 
-const int DEBOUNCE_DELAY = 50;
+#include <pin_defs.h>
+#include <ArduinoModbus.h>
+#include <modbus_registers.h>
 
 // a generic button debouncer that gives the state of the button
 struct ButtonDebouncer {
@@ -13,128 +11,37 @@ struct ButtonDebouncer {
     unsigned int numTimesHigh;
 };
 
-ButtonDebouncer newButtonDebouncer() {
-    return ButtonDebouncer {
-        false, 0,
-    };
-}
+ButtonDebouncer newButtonDebouncer();
 
-bool checkForRisingEdge(ButtonDebouncer& bd, int reading) {
-    bool pressed = (reading == HIGH);
-    if (bd.wasPressed && pressed) {
-        bd.numTimesHigh++;
-    } else if (!bd.wasPressed && pressed) {
-        bd.numTimesHigh = 1;
-    }
+bool checkForRisingEdge(ButtonDebouncer& bd, int reading);
 
-    bd.wasPressed = pressed;
-
-    return (bd.numTimesHigh == 5);
-}
+char* regToString(int reg);
 
 struct InputHandler {
     int currentRegister;
     int currentValue;
     float currentFloat;
     bool editing;
-    char displayString[4];
     int decimalLocation;
 };
 
-InputHandler newInputHandler() {
-    return InputHandler {
-        0, 0, 0.0, false, "000", 0
-    };
-}
+InputHandler newInputHandler();
 
-bool registerIsFloat(int reg) {
-    return (reg == HighLimit || reg == LowLimit);
-}
+bool registerIsFloat(int reg);
 
-float getIncrFloat(int reg) {
-    return 0.01;
-}
+float getIncrFloat(int reg);
 
-int getIncrInt(int reg) {
-    if (reg == PulseOnTime) {
-        return 10;
-    }
-    return 1;
-}
+int getIncrInt(int reg);
 
-int getUpperInt(int reg) {
-    if (reg == HighAlarmDelay) {
-        return 600;
-    } else if (reg == DowntimeCleaningDuration) {
-        return 30;
-    } else if (reg == PulseOnTime) {
-        return 500;
-    } else if (reg == PulseOffTime) {
-        return 60;
-    } else if (reg == NumSolenoids) {
-        return MAX_NUM_SOLENOIDS;
-    }
-}
+int getUpperInt(int reg);
+
+int getLowerInt(int reg);
+
+float getUpperFloat(int reg);
+
+float getLowerFloat(int reg);
 
 // Returns -1 if it should not be displaying anything, the number to display otherwise
-void updateInputHandler(InputHandler& ih, bool select, bool valueUp, bool valueDown) {
-    if (select) {
-        if (ih.editing) {
-            if (registerIsFloat(ih.currentRegister)) {
-                writeModbusFloat(ih.currentRegister, ih.currentFloat);
-            } else {
-                ModbusRTUServer.holdingRegisterWrite(ih.currentRegister, ih.currentValue);
-            }
-            ih.currentRegister = nextRegister(ih.currentRegister);
-            ih.currentValue = ModbusRTUServer.holdingRegisterRead(ih.currentRegister);
-            if (ih.currentRegister == 0) {
-                ih.editing = false;
-            }
-            if (registerIsFloat(ih.currentRegister)) {
-                ih.currentFloat = readModbusFloat(ih.currentRegister);
-            }
-        } else {
-            ih.editing = true;
-            ih.currentRegister = nextRegister();
-            ih.currentValue = ModbusRTUServer.holdingRegisterRead(ih.currentRegister);
-            if (registerIsFloat(ih.currentRegister)) {
-                DEBUG_PRINT("writing float");
-                ih.currentFloat = readModbusFloat(ih.currentRegister);
-            }
-        }
-    } else if ((valueUp || valueDown) && ih.editing) {
-        if (!registerIsFloat(ih.currentRegister)) {
-            if (valueUp) {
-                if (ih.currentValue < getUpperInt(ih.currentRegister)) {
-                    ih.currentValue += getIncrInt(ih.currentRegister);
-                }
-            } else {
-                ih.currentValue -= getIncrInt(ih.currentRegister);
-            }
-            ModbusRTUServer.holdingRegisterWrite(ih.currentRegister, ih.currentValue);
-        } else {
-            if (valueUp) {
-                ih.currentFloat += getIncrFloat(ih.currentRegister);
-            } else {
-                ih.currentFloat -= getIncrFloat(ih.currentRegister);
-            }
-            writeModbusFloat(ih.currentRegister, ih.currentFloat);
-        }
-    }
-
-    if (ih.editing) {
-        if (registerIsFloat(ih.currentRegister)) {
-			char tempString[4];
-			dtostrf(ih.currentFloat, 4, 2, tempString);
-			ih.displayString[0] = tempString[0];
-			ih.displayString[1] = tempString[2];
-			ih.displayString[2] = tempString[3];
-            ih.decimalLocation = 1;
-        } else {
-            sprintf(ih.displayString, "%3d", ih.currentValue);
-            ih.decimalLocation = 0;
-        }
-    }
-}
+void updateInputHandler(InputHandler& ih, bool select, bool valueUp, bool valueDown);
 
 #endif

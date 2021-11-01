@@ -4,7 +4,7 @@
 #define DEBUG_INCLUDED
 
 // If defined will use the serial monitor to output debug info
-//#define DEBUG
+#define DEBUG
 
 #ifdef DEBUG
 #define DEBUG_PRINT(arg)    Serial.println(arg)

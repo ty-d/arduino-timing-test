@@ -1,11 +1,11 @@
+#ifndef INCLUDED_PIN_DEFS
+#define INCLUDED_PIN_DEFS
+
 #include <Arduino.h>
 
 /*
     NOTE: all of these are far from final, just random numbers for now
 */
-
-#ifndef INCLUDED_PIN_DEFS
-#define INCLUDED_PIN_DEFS
 
 // Inputs
 const int PRESSURE_SENSOR_INPUT = 3;
@@ -16,37 +16,20 @@ const int MANUAL_OVERRIDE = 7;
 const int OPERATION_RESET = 8;
 
 // Button inputs
-const int VALUE_UP = 22;
-const int VALUE_DOWN = 24;
-const int SELECT = 26;
+const int VALUE_UP = A13;
+const int VALUE_DOWN = A14;
+const int SELECT = A15;
 
-void setupTimingInputs() {
-    pinMode(PRESSURE_SENSOR_INPUT, INPUT);
-    pinMode(DOWNTIME_CLEANING_INPUT, INPUT);
-    pinMode(MANUAL_CLEANING_INPUT, INPUT);
-    pinMode(HIGH_ALARM_RESET, INPUT);
-    pinMode(MANUAL_OVERRIDE, INPUT);
-    pinMode(OPERATION_RESET, INPUT);
-    pinMode(VALUE_UP, INPUT);
-    pinMode(VALUE_DOWN, INPUT);
-    pinMode(SELECT, INPUT);
-}
+void setupTimingInputs();
 
 // Outputs
-const int SOLENOID_ARRAY[] = {3, 4, 5, 6, 36, 8};
-const int MAX_NUM_SOLENOIDS = 40;
+const int SOLENOID_ARRAY[] = {38, 40, 42, 44, 46, 48};
+const int MAX_NUM_SOLENOIDS = 6;
 
-const int HIGH_ALARM = 10;
-const int MAINTENANCE_ALARM = 11;
-const int PRESSURE_TRANSMITTER = 12;
+const int HIGH_ALARM = 45;
+const int MAINTENANCE_ALARM = 47;
+const int PRESSURE_TRANSMITTER = 49;
 
-void setupTimingOutputs() {
-	for (int s = 0; s < MAX_NUM_SOLENOIDS; s++) {
-		pinMode(SOLENOID_ARRAY[s], OUTPUT);
-	}
-    pinMode(HIGH_ALARM, OUTPUT);
-    pinMode(MAINTENANCE_ALARM, OUTPUT);
-    pinMode(PRESSURE_TRANSMITTER, OUTPUT);
-}
+void setupTimingOutputs();
 
 #endif
