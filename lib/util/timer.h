@@ -1,3 +1,6 @@
+#ifndef TIMER_INCLUDED
+#define TIMER_INCLUDED
+
 // Basic timer for operation timer, lifetime timer
 struct Timer {
 	unsigned long startTime;	// in seconds, use millis() / 1000
@@ -5,29 +8,12 @@ struct Timer {
 	bool running;
 };
 
-void startTimer(Timer& t, unsigned long currTimeMillis) {
-	if (!t.running) {
-		t.running = true;
-		t.startTime = currTimeMillis / 1000;
-	}
-}
+void startTimer(Timer& t, unsigned long currTimeMillis);
 
-void stopTimer(Timer& t, unsigned long currTimeMillis) {
-	if (t.running) {
-		t.running = false;
-		t.totalTime = t.totalTime + (currTimeMillis / 1000) - t.startTime;
-	}
-}
+void stopTimer(Timer& t, unsigned long currTimeMillis);
 
-unsigned long elapsedTime(Timer t, unsigned long currTimeMillis) {
-	if (t.running) {
-		unsigned long currSec = currTimeMillis / 1000;
-		t.totalTime += currSec - t.startTime;
-		t.startTime = currSec;
-	}
-	return t.totalTime;
-}
+unsigned long elapsedTime(Timer t, unsigned long currTimeMillis);
 
-Timer newTimer(unsigned long totalTime) {
-	return Timer { 0, totalTime, false };
-}
+Timer newTimer(unsigned long totalTime);
+
+#endif
