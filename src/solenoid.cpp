@@ -10,9 +10,9 @@ Solenoids newSolenoids() {
     };
 }
 
-void updateSolenoids(Solenoids& solenoids, unsigned long time, float pressure) {
+void updateSolenoids(Solenoids& solenoids, unsigned long time, float pressure, bool override) {
     if (solenoids.state == WaitingForHigh) {
-        if (pressure >= readModbusFloat(HighLimit)) {
+        if ((pressure >= readModbusFloat(HighLimit)) || override) {
             digitalWrite(SOLENOID_ARRAY[solenoids.currentSolenoid], HIGH);
             solenoids.state = Pulsing;
             solenoids.lastUpdated = time;
@@ -34,7 +34,7 @@ void updateSolenoids(Solenoids& solenoids, unsigned long time, float pressure) {
         timeAllowed = 1000 * modbusTCPServer.holdingRegisterRead(PulseOffTime);
 #endif
         if (time - solenoids.lastUpdated > timeAllowed) {
-            if (pressure <= readModbusFloat(LowLimit)) {
+            if (!override && (pressure <= readModbusFloat(LowLimit))) {
                 solenoids.state = WaitingForHigh;
             } else {
                 digitalWrite(SOLENOID_ARRAY[solenoids.currentSolenoid], HIGH);

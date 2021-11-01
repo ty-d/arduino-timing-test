@@ -36,6 +36,8 @@ ButtonDebouncer select = newButtonDebouncer();
 ButtonDebouncer valueDown = newButtonDebouncer();
 ButtonDebouncer valueUp = newButtonDebouncer();
 ButtonDebouncer highAlarmReset = newButtonDebouncer();
+// Temporary way of changing between pressure, manual, and downtime cleaning modes, hooked up to manual_cleaning_input
+ButtonDebouncer stateChanger = newButtonDebouncer();
 
 bool highAlarmOn = false;
 
@@ -59,6 +61,12 @@ IPAddress ip(192, 168, 1, 177);
 float currentPressure = 0.00;
 
 EthernetClient client;
+
+enum CleaningState {
+	PressureMode,
+	ManualMode,
+	DowntimeMode,
+} cleaningState;
 
 void setup() {
 	Serial.begin(9600);
@@ -103,6 +111,7 @@ void setup() {
 
 	highAlarmTimer = newTimer(0);
 	cleaningTimer = newTimer(0);
+	cleaningState = PressureMode;
 	
 	lcd.begin(16, 4);
 	lcd.print("hello");
@@ -130,19 +139,21 @@ void loop() {
 	unsigned long currentTime = millis();
 
 	// update pressure reading
-	if ((currentTime - lastPressureRead > 100) || (currentTime < lastPressureRead)) {
-		lastPressureRead = currentTime;
-		currentPressure = readPressureSensor();
-		if (!inputHandler.editing) {
-			lcd.clear();
-			lcd.print("Pressure");
-			lcd.setCursor(0, 1);
-			lcd.print(currentPressure);
+	if (cleaningState == PressureMode) {
+		if ((currentTime - lastPressureRead > 100) || (currentTime < lastPressureRead)) {
+			lastPressureRead = currentTime;
+			currentPressure = readPressureSensor();
+			if (!inputHandler.editing) {
+				lcd.clear();
+				lcd.print("Pressure");
+				lcd.setCursor(0, 1);
+				lcd.print(currentPressure);
+			}
 		}
 	}
 
 	// fire solenoids if necessary, TODO: allow manual override and downtime override
-	updateSolenoids(solenoids, currentTime, currentPressure);
+	updateSolenoids(solenoids, currentTime, currentPressure, !(cleaningState == PressureMode));
 
 	// Operation and lifetime timers should not be running under 0.5 InWC
 	if (currentPressure < 0.5) {
@@ -203,6 +214,23 @@ void loop() {
 			} else {
 				lcd.print(inputHandler.currentValue);
 			}
+		}
+	}
+
+	// Change states (TODO: temporary for testing)
+	bool changeStateRisingEdge = checkForRisingEdge(stateChanger, digitalRead(MANUAL_OVERRIDE));
+	if (changeStateRisingEdge) {
+		DEBUG_PRINT("got change state");
+		if (cleaningState == PressureMode) {
+			cleaningState = ManualMode;
+			lcd.clear();
+			lcd.print("manual");
+		} else if (cleaningState == ManualMode) {
+			cleaningState = DowntimeMode;
+			lcd.clear();
+			lcd.print("downtime");
+		} else {
+			cleaningState = PressureMode;
 		}
 	}
 

@@ -12,7 +12,7 @@ const int PRESSURE_SENSOR_INPUT = 3;
 const int DOWNTIME_CLEANING_INPUT = 4;
 const int MANUAL_CLEANING_INPUT = 5;
 const int HIGH_ALARM_RESET = 6;
-const int MANUAL_OVERRIDE = 7;
+const int MANUAL_OVERRIDE = A12;
 const int OPERATION_RESET = 8;
 
 // Button inputs
