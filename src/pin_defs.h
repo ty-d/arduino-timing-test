@@ -8,12 +8,11 @@
 */
 
 // Inputs
-const int PRESSURE_SENSOR_INPUT = 3;
-const int DOWNTIME_CLEANING_INPUT = 4;
-const int MANUAL_CLEANING_INPUT = 5;
-const int HIGH_ALARM_RESET = 6;
-const int MANUAL_OVERRIDE = 7;
-const int OPERATION_RESET = 8;
+const int DOWNTIME_CLEANING_INPUT = A8;
+const int MANUAL_CLEANING_INPUT = A9;
+const int HIGH_ALARM_RESET = A10;
+const int MANUAL_OVERRIDE = A12;
+const int OPERATION_RESET = A11;
 
 // Button inputs
 const int VALUE_UP = A13;
@@ -28,7 +27,6 @@ const int MAX_NUM_SOLENOIDS = 6;
 
 const int HIGH_ALARM = 45;
 const int MAINTENANCE_ALARM = 47;
-const int PRESSURE_TRANSMITTER = 49;
 
 void setupTimingOutputs();
 

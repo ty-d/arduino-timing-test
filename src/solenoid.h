@@ -20,6 +20,6 @@ struct Solenoids {
 
 Solenoids newSolenoids();
 
-void updateSolenoids(Solenoids& solenoids, unsigned long time, float pressure);
+void updateSolenoids(Solenoids& solenoids, unsigned long time, float pressure, bool override);
 
 #endif
