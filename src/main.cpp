@@ -203,15 +203,19 @@ void loop() {
 		highAlarmTimer = newTimer(0);
 	}
 	if (currentPressure > readModbusFloat(HighAlarm)) {
-		if (highAlarmTimer.running && !highAlarmOn) {
-			if (elapsedTime(highAlarmTimer, currentTime) > modbusTCPServer.holdingRegisterRead(HighAlarmDelay)) {
-				// set the high alarm flag
-				DEBUG_PRINT("high alarm");
-				digitalWrite(HIGH_ALARM, HIGH);
-				highAlarmOn = true;
+		if (highAlarmTimer.running) {
+			if (!highAlarmOn) {
+				if (elapsedTime(highAlarmTimer, currentTime) > modbusTCPServer.holdingRegisterRead(HighAlarmDelay)) {
+					digitalWrite(HIGH_ALARM, HIGH);
+					highAlarmOn = true;
+				}
 			}
 		} else {
 			startTimer(highAlarmTimer, currentTime);
+		}
+	} else {
+		if (highAlarmTimer.running) {
+			highAlarmTimer = newTimer(0);
 		}
 	}
 
