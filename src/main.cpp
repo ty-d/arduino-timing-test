@@ -28,6 +28,7 @@ Timer cleaningTimer;
 const unsigned long PULSE_CYCLE_MAINTENANCE_THRESHOLD = 1000000;
 unsigned long lastEEPROMWrite = 0;
 unsigned long lastPressureRead = 0;
+unsigned long lastDowntimeUpdate = 0;
 
 Solenoids solenoids = newSolenoids();
 
@@ -38,6 +39,7 @@ ButtonDebouncer valueUp = newButtonDebouncer();
 ButtonDebouncer highAlarmReset = newButtonDebouncer();
 // Temporary way of changing between pressure, manual, and downtime cleaning modes, hooked up to manual_cleaning_input
 ButtonDebouncer stateChanger = newButtonDebouncer();
+ButtonDebouncer operationReset = newButtonDebouncer();
 
 bool highAlarmOn = false;
 
@@ -46,8 +48,6 @@ bool highAlarmOn = false;
 // E = 39
 // db0 - db3 = 37, 35, 33, 31
 // db4 - db7 = 29 27 25 23
-//LiquidCrystal lcd(43, 39, 29, 27, 25, 23);
-//LiquidCrystal lcd(43, 41, 39, 37, 35, 33, 31, 29, 27, 25, 23);
 LiquidCrystal lcd(43, 41, 39, 29, 27, 25, 23);
 
 extern Adafruit_ADS1115 pressureReader;
@@ -122,6 +122,8 @@ void setup() {
 }
 
 void loop() {
+	unsigned long currentTime = millis();
+
 	// Handle TCP client
 	if (client) {
 		if (client.connected()) {
@@ -136,19 +138,40 @@ void loop() {
 		if (client) modbusTCPServer.accept(client);
 	}
 
-	unsigned long currentTime = millis();
-
 	// update pressure reading
 	if (cleaningState == PressureMode) {
 		if ((currentTime - lastPressureRead > 100) || (currentTime < lastPressureRead)) {
 			lastPressureRead = currentTime;
 			currentPressure = readPressureSensor();
+			writeModbusFloat(Pressure, currentPressure);
 			if (!inputHandler.editing) {
 				lcd.clear();
 				lcd.print("Pressure");
 				lcd.setCursor(0, 1);
 				lcd.print(currentPressure);
 			}
+		}
+	} else if (cleaningState == DowntimeMode) {
+		int totalSeconds = 60*modbusTCPServer.holdingRegisterRead(DowntimeCleaningDuration);
+		int downtimeCleaningDifference = (totalSeconds) - elapsedTime(cleaningTimer, currentTime);
+		if ((currentTime - lastDowntimeUpdate > 1000) || (currentTime < lastDowntimeUpdate)) {
+			lastDowntimeUpdate = currentTime;
+			if (!inputHandler.editing) {
+				lcd.clear();
+				lcd.print("Downtime");
+				lcd.setCursor(0, 1);
+				lcd.print(downtimeCleaningDifference/60);
+				lcd.print(":");
+				int remainder = downtimeCleaningDifference % 60;
+				if (remainder == 0) {
+					lcd.print("00");
+				} else {
+					lcd.print(remainder);
+				}
+			}
+		}
+		if (downtimeCleaningDifference <= 0) {
+			cleaningState = PressureMode;
 		}
 	}
 
@@ -177,27 +200,27 @@ void loop() {
 	if (highAlarmOn && highAlarmResetRisingEdge) {
 		highAlarmOn = false;
 		digitalWrite(HIGH_ALARM, LOW);
+		highAlarmTimer = newTimer(0);
 	}
 	if (currentPressure > readModbusFloat(HighAlarm)) {
-		if (highAlarmTimer.running) {
-			if (!highAlarmOn) {
-				if (elapsedTime(highAlarmTimer, currentTime) > modbusTCPServer.holdingRegisterRead(HighAlarmDelay)) {
-					// set the high alarm flag
-					DEBUG_PRINT("high alarm");
-					digitalWrite(HIGH_ALARM, HIGH);
-					highAlarmOn = true;
-				}
+		if (highAlarmTimer.running && !highAlarmOn) {
+			if (elapsedTime(highAlarmTimer, currentTime) > modbusTCPServer.holdingRegisterRead(HighAlarmDelay)) {
+				// set the high alarm flag
+				DEBUG_PRINT("high alarm");
+				digitalWrite(HIGH_ALARM, HIGH);
+				highAlarmOn = true;
 			}
 		} else {
 			startTimer(highAlarmTimer, currentTime);
 		}
-	} else {
-		if (highAlarmTimer.running) {
-			highAlarmTimer = newTimer(0);
-		}
 	}
-	// TODO: some way to reset the high alarm
-	// TODO: some way to reset the operation timer
+
+	bool opResetRisingEdge = checkForRisingEdge(operationReset, digitalRead(OPERATION_RESET));
+	if (opResetRisingEdge) {
+		operationTimer = newTimer(0);
+		startTimer(operationTimer, currentTime);
+		modbusTCPServer.holdingRegisterWrite(OperationTimer, 0);
+	}
 
 	// update the input handler
 	bool selectRisingEdge = checkForRisingEdge(select, digitalRead(SELECT));
@@ -224,11 +247,11 @@ void loop() {
 		if (cleaningState == PressureMode) {
 			cleaningState = ManualMode;
 			lcd.clear();
-			lcd.print("manual");
+			lcd.print("Manual");
 		} else if (cleaningState == ManualMode) {
 			cleaningState = DowntimeMode;
-			lcd.clear();
-			lcd.print("downtime");
+			cleaningTimer = newTimer(0);
+			startTimer(cleaningTimer, currentTime);
 		} else {
 			cleaningState = PressureMode;
 		}
@@ -240,6 +263,7 @@ void loop() {
 		persistentVals.lifeTime = elapsedTime(lifetimeTimer, millis());
 		DEBUG_PRINT("Updated lifetime (sec):");
 		DEBUG_PRINT(persistentVals.lifeTime);
+		DEBUG_PRINT(persistentVals.operationTime);
 
 		lastEEPROMWrite = currentTime;
 		// NOTE: needs to be changed, this is a simple solution that doesn't have good enough endurance (100,000 writes guaranteed on EEPROM)
@@ -247,6 +271,9 @@ void loop() {
 		EEPROM.put(0x00, EEPROMWrapper {
 			EEPROM_WRITTEN_CONST, persistentVals, us
 		});
+
+		modbusTCPServer.holdingRegisterWrite(OperationTimer, persistentVals.operationTime);
+		modbusTCPServer.holdingRegisterWrite(LifetimeTimer, persistentVals.lifeTime);
 	}
 
 }

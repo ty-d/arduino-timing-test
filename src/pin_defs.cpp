@@ -1,7 +1,6 @@
 #include <pin_defs.h>
 
 void setupTimingInputs() {
-    pinMode(PRESSURE_SENSOR_INPUT, INPUT);
     pinMode(DOWNTIME_CLEANING_INPUT, INPUT);
     pinMode(MANUAL_CLEANING_INPUT, INPUT);
     pinMode(HIGH_ALARM_RESET, INPUT);
@@ -18,5 +17,4 @@ void setupTimingOutputs() {
 	}
     pinMode(HIGH_ALARM, OUTPUT);
     pinMode(MAINTENANCE_ALARM, OUTPUT);
-    pinMode(PRESSURE_TRANSMITTER, OUTPUT);
 }
