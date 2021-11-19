@@ -34,7 +34,7 @@ struct PersistentVals {
 
 PersistentVals newPersistentVals();
 
-struct EEPROMWrapper {
+struct SettingsWrapper {
     byte written; // signal that we wrote the EEPROM, there might be something better
     PersistentVals persistentVals;
     UserSettings userSettings;

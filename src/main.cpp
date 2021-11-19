@@ -1,7 +1,6 @@
 #include <Arduino.h>
 #include <persistent.h>
 #include <pin_defs.h>
-#include <EEPROM.h>
 #include <timer.h>
 #include <ArduinoModbus.h>
 #include <solenoid.h>
@@ -13,6 +12,7 @@
 #include <pressure.h>
 #include <Ethernet2.h>
 #include <SPI.h>
+#include <SD.h>
 
 extern ModbusTCPServer modbusTCPServer;
 
@@ -68,6 +68,12 @@ enum CleaningState {
 	DowntimeMode,
 } cleaningState;
 
+const char* DATA_FILENAME = "data.txt";
+
+// Pin used for SD card communication
+// on the Ethernet Shield
+const int SD_PIN = 4;
+
 void setup() {
 	Serial.begin(9600);
 	while (!Serial) {
@@ -82,9 +88,20 @@ void setup() {
 	DEBUG_PRINT("server at");
 	DEBUG_PRINT(Ethernet.localIP());
 
-	// get persistent data from eeprom
-	EEPROMWrapper wrapper;
-	EEPROM.get(0, wrapper);
+	// Initialize the SD Card and read the settings
+	SettingsWrapper wrapper;
+	if (!SD.begin(SD_PIN)) {
+		DEBUG_PRINT("Failed to init SD card");
+	} else {
+		DEBUG_PRINT("SD card initialization successful");
+		File dataFile = SD.open(DATA_FILENAME, FILE_READ);
+		if (dataFile) {
+			int readStatus = dataFile.read(&wrapper, sizeof(SettingsWrapper)/sizeof(uint8_t));
+			dataFile.close();
+		} else {
+			wrapper.written = 0; // use default settings below
+		}
+	}
 
 	if (wrapper.written != EEPROM_WRITTEN_CONST) {
 		DEBUG_PRINT("using defaults");
@@ -99,7 +116,7 @@ void setup() {
 	setupTimingInputs();
 	setupTimingOutputs();
 
-	modbusInit(wrapper.userSettings);
+	modbusInit(userSettings);
 
 	// Assume these start for now
 	operationTimer = newTimer(persistentVals.operationTime);
@@ -272,9 +289,19 @@ void loop() {
 		lastEEPROMWrite = currentTime;
 		// NOTE: needs to be changed, this is a simple solution that doesn't have good enough endurance (100,000 writes guaranteed on EEPROM)
 		UserSettings us = modbusGetUserSettings();
-		EEPROM.put(0x00, EEPROMWrapper {
+
+		SettingsWrapper newSettings = SettingsWrapper {
 			EEPROM_WRITTEN_CONST, persistentVals, us
-		});
+		};
+		
+		// remove the file first, TODO: maybe a better way?
+		SD.remove((char*) DATA_FILENAME);
+
+		File dataFile = SD.open(DATA_FILENAME, FILE_WRITE);
+		if (dataFile) {
+			dataFile.write((uint8_t*) &newSettings, sizeof(SettingsWrapper)/sizeof(uint8_t));
+			dataFile.close();
+		}
 
 		modbusTCPServer.holdingRegisterWrite(OperationTimer, persistentVals.operationTime);
 		modbusTCPServer.holdingRegisterWrite(LifetimeTimer, persistentVals.lifeTime);
