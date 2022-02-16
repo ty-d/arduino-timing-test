@@ -18,7 +18,7 @@ bool checkForRisingEdge(ButtonDebouncer& bd, int reading) {
 
     bd.wasPressed = pressed;
 
-    if (bd.numTimesHigh == 10) {
+    if (bd.numTimesHigh == 5) {
         bd.numTimesHigh++; // avoid being stuck at 10
         return true;
     }

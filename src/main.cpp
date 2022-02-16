@@ -133,17 +133,21 @@ void setup() {
 	lcd.begin(16, 4);
 	lcd.print("hello");
 
+	DEBUG_PRINT("attempting start");
 	if (!pressureReader.begin()) {
-		DEBUG_PRINT("Failed to start the ADS.");
+		DEBUG_PRINT("Failed to start the ADC.");
 	}
+	DEBUG_PRINT("got through start");
 }
 
 void loop() {
 	unsigned long currentTime = millis();
+	//DEBUG_PRINT("test");
 
 	// Handle TCP client
 	if (client) {
 		if (client.connected()) {
+			//DEBUG_PRINT("polling modbus");
 			modbusTCPServer.poll();
 		} else {
 			client.stop();
@@ -153,6 +157,9 @@ void loop() {
 	} else {
 		client = ethServer.available();
 		if (client) modbusTCPServer.accept(client);
+		if (client) {
+			DEBUG_PRINT("found client");
+		}
 	}
 
 	// update pressure reading
@@ -160,6 +167,7 @@ void loop() {
 		if ((currentTime - lastPressureRead > 100) || (currentTime < lastPressureRead)) {
 			lastPressureRead = currentTime;
 			currentPressure = readPressureSensor();
+			//currentPressure = 0.25;
 			writeModbusFloat(Pressure, currentPressure);
 			if (!inputHandler.editing) {
 				lcd.clear();
@@ -182,12 +190,15 @@ void loop() {
 				int remainder = downtimeCleaningDifference % 60;
 				if (remainder == 0) {
 					lcd.print("00");
+				} else if (remainder < 10) {
+					lcd.print("0");
+					lcd.print(remainder);
 				} else {
 					lcd.print(remainder);
 				}
 			}
 		}
-		if (downtimeCleaningDifference <= 0) {
+		if (downtimeCleaningDifference < 0) {
 			cleaningState = PressureMode;
 		}
 	}
@@ -215,6 +226,7 @@ void loop() {
 	// Handle high alarm timer
 	bool highAlarmResetRisingEdge = checkForRisingEdge(highAlarmReset, digitalRead(HIGH_ALARM_RESET));
 	if (highAlarmOn && highAlarmResetRisingEdge) {
+		DEBUG_PRINT("reset from the button");
 		highAlarmOn = false;
 		digitalWrite(HIGH_ALARM, LOW);
 		highAlarmTimer = newTimer(0);
@@ -263,8 +275,8 @@ void loop() {
 
 	// Change states (TODO: temporary for testing)
 	bool changeStateRisingEdge = checkForRisingEdge(stateChanger, digitalRead(MANUAL_OVERRIDE));
-	if (changeStateRisingEdge) {
-		DEBUG_PRINT("got change state");
+	if (changeStateRisingEdge && !inputHandler.editing) {
+		//DEBUG_PRINT("got change state");
 		if (cleaningState == PressureMode) {
 			cleaningState = ManualMode;
 			lcd.clear();

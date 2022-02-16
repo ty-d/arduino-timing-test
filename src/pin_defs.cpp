@@ -1,14 +1,14 @@
 #include <pin_defs.h>
 
 void setupTimingInputs() {
-    pinMode(DOWNTIME_CLEANING_INPUT, INPUT);
-    pinMode(MANUAL_CLEANING_INPUT, INPUT);
-    pinMode(HIGH_ALARM_RESET, INPUT);
-    pinMode(MANUAL_OVERRIDE, INPUT);
-    pinMode(OPERATION_RESET, INPUT);
-    pinMode(VALUE_UP, INPUT);
-    pinMode(VALUE_DOWN, INPUT);
-    pinMode(SELECT, INPUT);
+    pinMode(DOWNTIME_CLEANING_INPUT, INPUT_PULLUP);
+    pinMode(MANUAL_CLEANING_INPUT, INPUT_PULLUP);
+    pinMode(HIGH_ALARM_RESET, INPUT_PULLUP);
+    pinMode(MANUAL_OVERRIDE, INPUT_PULLUP);
+    pinMode(OPERATION_RESET, INPUT_PULLUP);
+    pinMode(VALUE_UP, INPUT_PULLUP);
+    pinMode(VALUE_DOWN, INPUT_PULLUP);
+    pinMode(SELECT, INPUT_PULLUP);
 }
 
 void setupTimingOutputs() {
