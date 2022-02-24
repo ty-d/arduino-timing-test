@@ -13,6 +13,7 @@
 #include <Ethernet2.h>
 #include <SPI.h>
 #include <SD.h>
+#include <SoftwareSerial.h>
 
 extern ModbusTCPServer modbusTCPServer;
 
@@ -73,6 +74,11 @@ const char* DATA_FILENAME = "data.txt";
 // Pin used for SD card communication
 // on the Ethernet Shield
 const int SD_PIN = 4;
+
+// Bluetooth related variables
+SoftwareSerial bluetoothSerial(BLUETOOTH_TX, BLUETOOTH_RX);
+char bluetoothMessage[100] = {'\0'};
+int bluetoothMessagePosition = 0;
 
 void setup() {
 	Serial.begin(9600);
@@ -136,6 +142,15 @@ void setup() {
 	if (!pressureReader.begin()) {
 		DEBUG_PRINT("Failed to start the ADC.");
 	}
+
+	// bluetooth chip setup
+	bluetoothSerial.begin(115200);
+	bluetoothSerial.print("$");
+	bluetoothSerial.print("$");
+	bluetoothSerial.print("$");
+	delay(100);
+	bluetoothSerial.println("U,9600,N");
+	bluetoothSerial.begin(9600);
 }
 
 void loop() {
@@ -309,4 +324,76 @@ void loop() {
 		modbusTCPServer.holdingRegisterWrite(LifetimeTimer, persistentVals.lifeTime);
 	}
 
+	// Handle Bluetooth
+	if (bluetoothSerial.available()) {
+		char charRead = bluetoothSerial.read();
+
+		// if message ending process the message, otherwise add to the message buffer
+		if (charRead == '\r' || charRead == '\n' || charRead == '\0') {
+			char* token = strtok(bluetoothMessage, " ");
+
+			// check for the following commands: mode, pressure, set
+			if (strstr(token, "mode")) {
+				char* response = "OK";
+				// should be the mode that we want
+				token = strtok(NULL, " ");
+				if (strstr(token, "downtime")) {
+					if (cleaningState != DowntimeMode) {
+						cleaningState = DowntimeMode;
+						cleaningTimer = newTimer(0);
+						startTimer(cleaningTimer, currentTime);
+					}
+				} else if (strstr(token, "manual")) {
+					if (cleaningState != ManualMode) {
+						cleaningState = ManualMode;
+						lcd.clear();
+						lcd.print("Manual");
+					}
+				} else if (strstr(token, "pressure")) {
+					if (cleaningState != PressureMode) {
+						cleaningState = PressureMode;
+					}
+				} else {
+					response = "Invalid mode";
+				}
+				bluetoothSerial.println(response);
+			} else if (strstr(bluetoothMessage, "pressure")) {
+				char buffer[5];
+				dtostrf(currentPressure, 4, 2, buffer);
+				bluetoothSerial.print(buffer);
+				bluetoothSerial.println(" InWC");
+			} else if (strstr(bluetoothMessage, "set")) {
+				token = strtok(NULL, " ");
+				ModbusRegisters reg = NULL;
+
+				if (strstr(token, "ontime")) {
+					reg = PulseOnTime;
+				} else if (strstr(token, "offtime")) {
+					reg = PulseOffTime;
+				} else if (strstr(token, "numsolenoids")) {
+					reg = NumSolenoids;
+				} else if (strstr(token, "downtime")) {
+					reg = DowntimeCleaningDuration;
+				} else {
+					bluetoothSerial.println("Invalid setting");
+				}
+
+				if (reg != NULL) {
+					// advance twice to skip "to"
+					token = strtok(NULL, " ");
+					token = strtok(NULL, " ");
+					int value = atoi(token);
+					modbusTCPServer.holdingRegisterWrite(reg, value);
+					bluetoothSerial.println("OK");
+				}
+			}
+
+			// reset the string
+			memset(bluetoothMessage, '\0', bluetoothMessagePosition);
+			bluetoothMessagePosition = 0;
+		} else {
+			bluetoothMessage[bluetoothMessagePosition] = charRead;
+			bluetoothMessagePosition++;
+		}
+	}
 }

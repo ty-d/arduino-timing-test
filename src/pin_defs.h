@@ -28,6 +28,9 @@ const int MAX_NUM_SOLENOIDS = 6;
 const int HIGH_ALARM = 45;
 const int MAINTENANCE_ALARM = 47;
 
+const int BLUETOOTH_TX = A9;
+const int BLUETOOTH_RX = A5;
+
 void setupTimingOutputs();
 
 #endif
